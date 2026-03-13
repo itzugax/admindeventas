@@ -66,6 +66,56 @@
         /* Inputs Estilizados */
         input { transition: all 0.3s ease; }
         input:focus { box-shadow: 0 0 15px rgba(59, 130, 246, 0.15); }
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600;800&family=Montserrat:wght@400;600;800&display=swap');
+
+:root {
+    --neon-blue: #3b82f6;
+    --dark-bg: #030508;
+}
+
+body { 
+    background-color: var(--dark-bg); 
+    color: #e2e8f0; 
+    font-family: 'Inter', sans-serif; 
+    background-image: radial-gradient(circle at 50% 50%, #1e293b 0%, #030508 100%);
+    min-height: 100vh;
+}
+
+/* Tipografía nueva para productos */
+.nombre-producto {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.precio-producto {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #60a5fa;
+}
+
+.font-tech { font-family: 'Orbitron', sans-serif; }
+.glass { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.03); }
+.nombre-producto {
+    font-family: 'Montserrat', sans-serif;
+    /* Antes era pequeño, ahora 1.3rem para que resalte */
+    font-size: 1.3rem !important; 
+    font-weight: 800;
+    text-transform: uppercase;
+    color: #ffffff;
+    line-height: 1.1;
+}
+
+.precio-producto {
+    font-family: 'Montserrat', sans-serif;
+    /* Antes era 1.1rem, ahora 1.6rem para lectura rápida */
+    font-size: 1.6rem !important;
+    font-weight: 700;
+    color: #60a5fa; /* Un azul más brillante */
+    margin-top: 5px;
+}
     </style>
 </head>
 <body class="p-4 md:p-10">
@@ -297,26 +347,24 @@
                 itemsNormales.forEach(p => listNormal.innerHTML += crearCard(p, false));
             }
         }
-
-        function crearCard(p, isPinned) {
-            return `
-                <div class="glass p-6 rounded-[2.5rem] card-nexus glass-hover group">
-                    <button onclick="togglePin(${p.id})" class="absolute top-5 right-5 text-[12px] ${isPinned ? 'pin-active' : 'text-slate-800'} hover:text-blue-500 transition-all z-10">📌</button>
-                    <div class="truncate pr-12">
-                        <p class="font-black text-slate-300 text-xs uppercase tracking-wider truncate mb-1">${p.nombre}</p>
-                        <div class="flex items-center gap-3">
-                            <p class="text-blue-500 font-tech text-lg font-black">${p.precio} <span class="text-[10px]">Bs.</span></p>
-                            <button onclick="modificarPrecio(${p.id}, ${p.precio})" class="opacity-0 group-hover:opacity-100 text-[8px] text-slate-600 hover:text-white uppercase font-black transition">Editar</button>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-3 bg-black/40 p-3 rounded-[1.5rem] border border-white/5">
-                        <input type="number" id="qty-${p.id}" value="1" min="1" class="w-10 bg-transparent text-center text-sm font-black text-white outline-none">
-                        <button onclick="alCarrito('${p.nombre}', ${p.precio}, 'qty-${p.id}')" 
-                                class="bg-blue-600 text-white w-12 h-12 rounded-2xl font-black text-xl hover:bg-blue-500 hover:scale-105 active:scale-95 transition-all shadow-lg shadow-blue-900/20">+</button>
-                    </div>
-                </div>`;
-        }
-
+function crearCard(p, isPinned) {
+    return `
+        <div class="glass p-6 rounded-[2.5rem] card-nexus glass-hover group relative">
+            <button onclick="togglePin(${p.id})" class="absolute top-5 right-5 text-[15px] ${isPinned ? 'pin-active' : 'text-slate-700'} z-10">📌</button>
+            <div class="mb-4">
+                <p class="nombre-producto truncate mb-1">${p.nombre}</p>
+                <div class="flex items-center gap-3">
+                    <p class="precio-producto">${p.precio} <span class="text-xs font-bold">Bs.</span></p>
+                    <button onclick="modificarPrecio(${p.id}, ${p.precio})" class="opacity-0 group-hover:opacity-100 text-[9px] text-slate-500 hover:text-white transition">Editar</button>
+                </div>
+            </div>
+            <div class="flex items-center gap-3 bg-black/40 p-3 rounded-[1.8rem] border border-white/5">
+                <input type="number" id="qty-${p.id}" value="1" min="1" class="w-12 bg-transparent text-center input-cantidad text-white outline-none">
+                <button onclick="alCarrito('${p.nombre}', ${p.precio}, 'qty-${p.id}')" 
+                        class="bg-blue-600 text-white flex-grow h-14 rounded-2xl font-black text-3xl hover:bg-blue-500 transition-all">+</button>
+            </div>
+        </div>`;
+}
         /**
          * LÓGICA DE CARRITO Y VENTAS
          */
@@ -556,5 +604,22 @@
         // Inicio
         bootstrap();
     </script>
+    <div id="modal-monto-rapido" class="hidden fixed inset-0 bg-black/95 backdrop-blur-xl flex items-center justify-center p-6 z-[100]">
+    <div class="glass p-12 rounded-[4rem] w-full max-w-lg border border-blue-500/20">
+        <div class="text-center mb-10">
+            <div class="w-20 h-20 bg-blue-600/20 text-blue-500 rounded-3xl flex items-center justify-center mx-auto mb-6 text-3xl">💰</div>
+            <h2 class="text-2xl font-tech text-white uppercase">Venta Manual</h2>
+        </div>
+        <div class="space-y-6">
+            <input type="text" id="quick-name" placeholder="¿Qué estás cobrando?" class="w-full bg-black/50 p-6 rounded-3xl outline-none border border-white/5 text-white font-bold">
+            <input type="number" id="quick-price" placeholder="Monto Bs." class="w-full bg-black/50 p-6 rounded-3xl outline-none border border-white/5 text-white font-tech text-2xl">
+        </div>
+        <div class="flex gap-6 mt-12">
+            <button onclick="cerrarModal('modal-monto-rapido')" class="flex-1 text-slate-500 font-black uppercase text-[10px]">Cancelar</button>
+            <button onclick="addQuick()" class="flex-1 bg-blue-600 p-6 rounded-3xl font-black uppercase text-xs">Añadir</button>
+            
+        </div>
+    </div>
+</div>
 </body>
 </html>
