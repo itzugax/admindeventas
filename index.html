@@ -1124,37 +1124,65 @@ async function cargarMontoDesdeNube() {
     }
 }
 async function cargarVentasDesdeNube() {
-    const hoy = new Date().toLocaleDateString();
+    // 1. Generamos una fecha estándar (YYYY-MM-DD) que es igual en PC y Móvil
+    const f = new Date();
+    const hoyEstandar = f.getFullYear() + "-" + 
+                       String(f.getMonth() + 1).padStart(2, '0') + "-" + 
+                       String(f.getDate()).padStart(2, '0');
+    
+    // También mantenemos el formato viejo por si acaso lo usaste antes
+    const hoyLocal = f.toLocaleDateString(); 
+    
     const balanceTxt = document.getElementById('balance-txt');
 
     try {
+        console.log("Sincronizando con la nube para la fecha:", hoyEstandar);
+
+        // 2. Buscamos en Supabase
+        // Usamos 'or' para que funcione tanto si la fecha se guardó en formato local como estándar
         const { data, error } = await nexus
             .from('ventas')
-            .select('*') // Traemos todo para que las estadísticas funcionen
-            .eq('fecha', hoy);
+            .select('*')
+            .or(`fecha.eq.${hoyEstandar},fecha.eq.${hoyLocal}`);
 
         if (error) throw error;
 
         if (data) {
-            // Mapeamos los datos para que el sistema los entienda (convertimos el string de productos a objeto)
-            VENTAS_SESION = data.map(v => ({
-                id: v.id,
-                total: parseFloat(v.precio),
-                metodo: v.metodo,
-                fecha: v.created_at,
-                items: JSON.parse(v.producto) // Convertimos el texto de la DB a lista de productos
-            }));
+            // 3. Mapeamos los datos para que el sistema los entienda siempre
+            VENTAS_SESION = data.map(v => {
+                let itemsProcesados = [];
+                try {
+                    // Si el producto es texto (JSON), lo convertimos a lista
+                    itemsProcesados = typeof v.producto === 'string' ? JSON.parse(v.producto) : v.producto;
+                } catch (e) {
+                    console.error("Error al procesar productos de la venta:", v.id);
+                }
 
-            // Calculamos el total del día
+                return {
+                    id: v.id,
+                    total: parseFloat(v.precio) || 0,
+                    metodo: v.metodo || 'S/M',
+                    fecha: v.created_at,
+                    items: itemsProcesados
+                };
+            });
+
+            // 4. Calculamos el total acumulado del día
             const totalHoy = VENTAS_SESION.reduce((acc, v) => acc + v.total, 0);
             
+            // 5. Actualizamos la interfaz (Monto en la esquina)
             if (balanceTxt) {
                 balanceTxt.innerText = totalHoy.toFixed(2) + " Bs.";
+                
+                // Efecto visual: si el monto es > 0, lo ponemos en verde brillante
+                balanceTxt.style.color = totalHoy > 0 ? "#4ade80" : "#60a5fa";
             }
-            console.log("Sincronización global completada.");
+
+            console.log("Sincronización exitosa. Total hoy:", totalHoy);
         }
     } catch (err) {
-        console.error("Error en sincronización global:", err);
+        console.error("Error crítico de sincronización:", err);
+        if (balanceTxt) balanceTxt.innerText = "Error Sinc.";
     }
 }
     </script>
