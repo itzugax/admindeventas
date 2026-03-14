@@ -164,7 +164,7 @@
         <div class="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center font-brand font-black text-4xl shadow-xl shadow-blue-600/40">N</div>
         <div>
             <h1 class="font-brand text-2xl font-black tracking-tighter">NEXUS <span class="text-blue-500">v9.5</span></h1>
-            <p class="text-[11px] font-black opacity-30 uppercase tracking-[4px]">Elite System</p>
+            <p class="text-[11px] font-black opacity-60 uppercase tracking-[4px]">Elite System</p>
         </div>
     </div>
 
@@ -173,13 +173,13 @@
             <span class="text-2xl">🏠</span> Terminal
         </button>
         <button onclick="abrirModulo('modal-stats')" class="w-full p-4 flex items-center gap-6 rounded-2xl text-white/40 font-bold text-base uppercase transition hover:bg-white/5 group">
-            <span class="text-2xl opacity-40 group-hover:opacity-100">📊</span> Estadísticas
+            <span class="text-2xl opacity-40 group-hover:opacity-60">📊</span> Estadísticas
         </button>
         <button onclick="abrirHistorialCierres()" class="w-full p-4 flex items-center gap-6 rounded-2xl text-white/40 font-bold text-base uppercase transition hover:bg-white/5 group">
-            <span class="text-2xl opacity-40 group-hover:opacity-100">📁</span> Historial
+            <span class="text-2xl opacity-40 group-hover:opacity-60">📁</span> Historial
         </button>
         <button onclick="abrirModulo('modal-inv')" class="w-full p-4 flex items-center gap-6 rounded-2xl text-white/40 font-bold text-base uppercase transition hover:bg-white/5 group">
-            <span class="text-2xl opacity-40 group-hover:opacity-100">📦</span> Inventario
+            <span class="text-2xl opacity-40 group-hover:opacity-60">📦</span> Inventario
         </button>
         
         <div class="pt-8">
@@ -206,11 +206,11 @@
            class="bg-transparent border-none outline-none text-[11px] font-bold uppercase tracking-widest w-full text-white placeholder:text-white/20">
 </div>
 <div class="text-right cursor-pointer group px-8 border-r border-white/10 min-w-[200px]" onclick="abrirAuditoriaTurno()">
-    <p class="text-[9px] font-black opacity-30 uppercase tracking-widest group-hover:text-blue-400 transition">Balance Sesión Bs.</p>
+    <p class="text-[9px] font-black opacity-60 uppercase tracking-widest group-hover:text-blue-400 transition">Balance Sesión Bs.</p>
     <p id="balance-txt" class="font-brand text-2xl text-green-400">0.00 Bs.</p>
 </div>
         <div class="text-right min-w-[140px]">
-            <p id="fecha-actual" class="text-[9px] font-black opacity-30 uppercase tracking-widest">--/--/--</p>
+            <p id="fecha-actual" class="text-[9px] font-black opacity-60 uppercase tracking-widest">--/--/--</p>
             <p id="reloj" class="font-brand text-2xl text-blue-500">00:00:00</p>
         </div>
     </div>
@@ -231,7 +231,7 @@
 
 <div class="p-8 bg-black/40 border-t-2 border-white/15 space-y-6">
     <div class="flex justify-between items-center">
-        <span class="text-xs font-black opacity-30 uppercase tracking-widest">Total a Pagar</span>
+        <span class="text-xs font-black opacity-60 uppercase tracking-widest">Total a Pagar</span>
         <div class="text-right">
             <span id="total-txt" class="font-brand text-5xl font-black">0.00</span>
             <span class="text-xl font-black text-blue-500 ml-2">Bs.</span>
@@ -315,7 +315,7 @@
                 
                 <div class="grid grid-cols-3 gap-10">
                     <div class="col-span-2 bg-white/5 p-10 rounded-[40px] border-2 border-white/10">
-                        <p class="text-[11px] font-black opacity-30 uppercase mb-6 tracking-widest">Artículos en esta factura</p>
+                        <p class="text-[11px] font-black opacity-60 uppercase mb-6 tracking-widest">Artículos en esta factura</p>
                         <div id="detalle-items-lista" class="space-y-4 max-h-[400px] overflow-y-auto custom-scroll pr-4">
                             </div>
                     </div>
@@ -325,7 +325,7 @@
                             <p id="detalle-total-txt" class="font-brand text-5xl font-black text-blue-400">0.00 Bs.</p>
                         </div>
                         <div class="bg-black/30 p-10 rounded-[40px] border-2 border-white/5">
-                            <p class="text-[11px] font-black opacity-30 uppercase mb-4 tracking-widest">Método Usado</p>
+                            <p class="text-[11px] font-black opacity-60 uppercase mb-4 tracking-widest">Método Usado</p>
                             <p id="detalle-metodo-txt" class="font-bold text-xl uppercase tracking-widest text-white">EFECTIVO</p>
                             <hr class="my-6 border-white/5">
                             <button id="btn-re-descargar" class="w-full py-5 bg-white/5 rounded-2xl font-black text-xs uppercase hover:bg-white/10 transition">
@@ -345,21 +345,21 @@
             
             <div class="grid grid-cols-3 gap-10 mb-12">
                 <div class="bg-white/5 p-10 rounded-[40px] border-2 border-white/5">
-                    <p class="text-xs font-black opacity-30 uppercase mb-4">Ingreso Total Histórico</p>
+                    <p class="text-xs font-black opacity-60 uppercase mb-4">Ingreso Total Histórico</p>
                     <p id="stat-total-h" class="font-brand text-4xl font-black text-blue-500">0.00 Bs.</p>
                 </div>
                 <div class="bg-white/5 p-10 rounded-[40px] border-2 border-white/5">
-                    <p class="text-xs font-black opacity-30 uppercase mb-4">Total de Cierres</p>
+                    <p class="text-xs font-black opacity-60 uppercase mb-4">Total de Cierres</p>
                     <p id="stat-cierres-h" class="font-brand text-4xl font-black text-orange-500">0</p>
                 </div>
                 <div class="bg-white/5 p-10 rounded-[40px] border-2 border-white/5">
-                    <p class="text-xs font-black opacity-30 uppercase mb-4">Ticket Promedio</p>
+                    <p class="text-xs font-black opacity-60 uppercase mb-4">Ticket Promedio</p>
                     <p id="stat-ticket-h" class="font-brand text-4xl font-black text-green-500">0.00 Bs.</p>
                 </div>
             </div>
             
             <div class="flex-1 bg-black/20 p-10 rounded-[45px] border-2 border-white/5 relative">
-                <p class="text-[11px] font-black opacity-30 uppercase mb-8 tracking-[4px]">Evolución de Ingresos (Últimos Cierres)</p>
+                <p class="text-[11px] font-black opacity-60 uppercase mb-8 tracking-[4px]">Evolución de Ingresos (Últimos Cierres)</p>
                 <div class="h-[400px]"><canvas id="chartGlobalIngresos"></canvas></div>
             </div>
         </div>
@@ -457,7 +457,7 @@ async function boot() {
                 card.innerHTML = `
                     <div class="flex justify-between items-start mb-6">
                         <h3 class="prod-name">${p.nombre}</h3>
-                        <button onclick="togglePin(${p.id})" class="text-2xl opacity-20 hover:opacity-100 transition">${isPin ? '📌' : '📍'}</button>
+                        <button onclick="togglePin(${p.id})" class="text-2xl opacity-20 hover:opacity-60 transition">${isPin ? '📌' : '📍'}</button>
                     </div>
                     <div class="flex justify-between items-end">
                         <span class="prod-price">${p.precio.toFixed(2)} Bs.</span>
@@ -846,7 +846,7 @@ function abrirAuditoriaTurno() {
                 const d = document.createElement('div');
                 d.className = "p-8 bg-white/5 rounded-[35px] border-2 border-white/5 flex justify-between items-center hover:border-blue-500 transition-all";
                 d.innerHTML = `
-                    <div><p class="text-sm text-blue-400 font-black">${new Date(x.created_at).toLocaleString()}</p><p class="opacity-30 text-xs">Tickets: ${x.detalles.conteo}</p></div>
+                    <div><p class="text-sm text-blue-400 font-black">${new Date(x.created_at).toLocaleString()}</p><p class="opacity-60 text-xs">Tickets: ${x.detalles.conteo}</p></div>
                     <div class="flex items-center gap-10">
                         <span class="text-3xl font-black">${x.monto_total.toFixed(2)} Bs.</span>
                         <button onclick="descargarReporteCierre(${x.id})" class="bg-blue-600 px-8 py-3 rounded-2xl font-black text-xs">DESCARGAR INFORME</button>
