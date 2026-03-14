@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
     <title>NEXUS ELITE v9.5 | Ultimate Management System</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
@@ -403,16 +406,32 @@
         const nexus = supabase.createClient(SB_URL, SB_KEY);
         const SEGURIDAD_KEY = "3110";
 
-        let PRODUCTOS = [], CARRITO = [], VENTAS_SESION = JSON.parse(sessionStorage.getItem('nexus_v95_session')) || [];
-        let FIJADOS = JSON.parse(localStorage.getItem('nexus_fijados')) || [];
-        let METODO_ACTUAL = null, chartM = null, chartR = null, chartG = null;
+// --- VARIABLES GLOBALES ÚNICAS (Limpia los duplicados aquí) ---
+let PRODUCTOS = []; 
+let CARRITO = []; 
+let VENTAS_SESION = []; 
+let FIJADOS = JSON.parse(localStorage.getItem('nexus_fijados')) || [];
+let METODO_SELECCIONADO = null;
+let chartM = null, chartR = null, chartG = null;
 
-        async function boot() {
-            startClock();
-            await loadInventory();
-            await syncCola();
-            updateUIVisuals();
-        }
+async function boot() {
+    try {
+        startClock();
+        
+        // 1. Cargamos inventario primero para que el catálogo aparezca YA
+        await loadInventory(); 
+        
+        // 2. Traemos las ventas del día de la nube (esto llena el monto y la bitácora)
+        await cargarVentasDesdeNube(); 
+        
+        // 3. Sincronizamos la cola de ventas pausadas
+        await syncCola();
+        
+        console.log("Nexus Elite: Sistema sincronizado.");
+    } catch (error) {
+        console.error("Error en el arranque:", error);
+    }
+}
 
         function startClock() {
             setInterval(() => {
@@ -452,14 +471,25 @@
             });
         }
 
-        function addToCart(id) {
-            const p = PRODUCTOS.find(x => x.id === id);
-            const qty = parseInt(document.getElementById(`qty-${id}`).value) || 1;
-            const ex = CARRITO.find(x => x.id === id);
-            if(ex) ex.qty += qty; else CARRITO.push({ ...p, qty, uid: Date.now() + Math.random() });
-            document.getElementById(`qty-${id}`).value = "1";
-            renderCart();
-        }
+function addToCart(id) {
+    // Buscamos el producto en la lista global que cargamos de Supabase
+    const p = PRODUCTOS.find(x => x.id === id);
+    if (!p) return; // Si no lo encuentra, no hace nada
+
+    const qtyInput = document.getElementById(`qty-${id}`);
+    const qty = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
+    
+    // Revisamos si ya está en el carrito para sumar la cantidad
+    const existe = CARRITO.find(x => x.id === id);
+    if (existe) {
+        existe.qty += qty;
+    } else {
+        CARRITO.push({ ...p, qty, uid: Date.now() + Math.random() });
+    }
+    
+    if (qtyInput) qtyInput.value = "1"; // Reseteamos el contador del cuadrito
+    renderCart(); // Dibujamos el carrito actualizado
+}
 
 function renderCart() {
     // Usamos el ID correcto de tu HTML: 'lista-carrito'
@@ -574,7 +604,6 @@ function activarDividido(btn) {
         }
 
 async function finalizarVenta() {
-    // 1. Validaciones iniciales
     if (CARRITO.length === 0) {
         alert("⚠️ El carrito está vacío");
         return;
@@ -584,20 +613,18 @@ async function finalizarVenta() {
         return;
     }
 
-    // Calculamos el total
     const totalVenta = CARRITO.reduce((acc, i) => acc + (i.precio * i.qty), 0);
 
     try {
-        // 2. Mapeo exacto según tu imagen de Supabase
+        // 1. Guardar en Supabase
         const { error } = await nexus
             .from('ventas')
             .insert([{
-                producto: JSON.stringify(CARRITO), // 'producto' en singular como tu tabla
-                precio: totalVenta,                // 'precio' en vez de 'total' como tu tabla
-                metodo: METODO_SELECCIONADO,       // 'metodo' (asegúrate de darle al botón Refresh en Supabase)
+                producto: JSON.stringify(CARRITO),
+                precio: totalVenta,
+                metodo: METODO_SELECCIONADO,
                 fecha: new Date().toLocaleDateString(), 
                 created_at: new Date().toISOString(),
-                // Si es pago dividido, aquí podrías llenar p_efectivo, p_movil, etc.
                 p_efectivo: METODO_SELECCIONADO === "EFECTIVO" ? totalVenta : 0,
                 p_movil: METODO_SELECCIONADO === "PAGO MÓVIL" ? totalVenta : 0,
                 p_bio: METODO_SELECCIONADO === "BIOPAGO" ? totalVenta : 0
@@ -605,29 +632,18 @@ async function finalizarVenta() {
 
         if (error) throw error;
 
-        // 3. Éxito y Limpieza
-        alert("✅ VENTA REGISTRADA CON ÉXITO");
-
-        // Actualizar sesión local para estadísticas
-        VENTAS_SESION.push({
-            id: Date.now(),
-            items: [...CARRITO],
-            total: totalVenta,
-            metodo: METODO_SELECCIONADO,
-            fecha: new Date().toISOString()
-        });
-        sessionStorage.setItem('nexus_v95_session', JSON.stringify(VENTAS_SESION));
-
-        // Limpiar todo
+        // 2. ÉXITO: Limpiamos carrito y cerramos modal
         CARRITO = [];
         METODO_SELECCIONADO = null;
-        
-        if (typeof renderCart === 'function') renderCart();
-        if (typeof updateUIVisuals === 'function') updateUIVisuals();
-        
-        // Cerrar el modal
-        const modal = document.getElementById('modal-pago');
-        if (modal) modal.classList.remove('active');
+        renderCart();
+        cerrarModal('modal-pago');
+
+        // 3. LA CLAVE: Llamamos a cargarVentasDesdeNube()
+        // Esto vuelve a traer los datos reales de la base de datos y actualiza el balance de inmediato.
+        await cargarVentasDesdeNube();
+
+        // 4. Efecto de confeti
+        confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
 
     } catch (err) {
         console.error("Error detallado:", err);
@@ -691,6 +707,7 @@ function abrirAuditoriaTurno() {
         `;
         list.appendChild(d);
     });
+    
 
     // 3. Actualización de Gráficos (Distribución y Ranking)
     if(chartM) chartM.destroy();
@@ -935,8 +952,18 @@ async function descargarReporteCierre(id) {
         }
 
         // --- UTILIDADES ---
-        function updateUIVisuals() { document.getElementById('balance-txt').innerText = VENTAS_SESION.reduce((s,v)=>s+v.total, 0).toFixed(2) + " Bs."; }
-        function abrirModulo(id) { document.getElementById(id).classList.add('active'); if(id==='modal-inv') renderInventoryTable(); if(id==='modal-stats') renderStatsGlobales(); }
+        function abrirModulo(id) {
+    document.getElementById(id).classList.add('active');
+    
+    // Ejecutar lógica específica según el modal que se abre
+    if(id === 'modal-inv') renderInventoryTable();
+    if(id === 'modal-stats') renderStatsGlobales(); // Esto asegura que se dibujen siempre
+    if(id === 'modal-auditoria') {
+        // No llamamos a abrirAuditoriaTurno aquí para evitar bucles, 
+        // pero nos aseguramos de que el index esté visible
+        volverAuditoriaIndex();
+    }
+}
         function cerrarModal(id) { document.getElementById(id).classList.remove('active'); }
         function validarSeguridad(cb) { if(prompt("CLAVE ADMIN:") === SEGURIDAD_KEY) cb(); else alert("Denegado"); }
         function togglePin(id) { if(FIJADOS.includes(id)) FIJADOS=FIJADOS.filter(x=>x!==id); else FIJADOS.push(id); localStorage.setItem('nexus_fijados', JSON.stringify(FIJADOS)); renderCatalog(PRODUCTOS); }
@@ -1043,18 +1070,26 @@ async function cargarMontoDesdeNube() {
 }
 // --- ESTO VA AL FINAL DEL SCRIPT ---
 
-document.addEventListener('DOMContentLoaded', () => {
-    // 1. Iniciamos el inventario
-    if (typeof loadInventory === 'function') loadInventory();
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log("Nexus: Iniciando carga maestra...");
+    startClock();
+    
+    // Forzamos la carga del inventario (Catálogo)
+    if (typeof loadInventory === 'function') {
+        await loadInventory();
+    }
+    
+    // Forzamos la carga del balance (Nube)
+    if (typeof cargarVentasDesdeNube === 'function') {
+        await cargarVentasDesdeNube();
+    }
 
-    // 2. Cargamos el monto de la nube inmediatamente
-    cargarMontoDesdeNube();
-
-    // 3. REFUERZO: Si alguna función borra el monto al segundo, 
-    // lo volvemos a llamar a los 2 segundos para asegurar.
+    // Si después de cargar, el catálogo sigue vacío, lo re-intentamos una vez
     setTimeout(() => {
-        cargarMontoDesdeNube();
-    }, 2000);
+        if (PRODUCTOS.length === 0 && typeof loadInventory === 'function') {
+            loadInventory();
+        }
+    }, 1000);
 });
 // La función que viaja a Supabase (pégala aquí también si no la has puesto)
 async function cargarMontoDesdeNube() {
@@ -1086,6 +1121,40 @@ async function cargarMontoDesdeNube() {
         }
     } catch (err) {
         console.error("Error sincronizando:", err);
+    }
+}
+async function cargarVentasDesdeNube() {
+    const hoy = new Date().toLocaleDateString();
+    const balanceTxt = document.getElementById('balance-txt');
+
+    try {
+        const { data, error } = await nexus
+            .from('ventas')
+            .select('*') // Traemos todo para que las estadísticas funcionen
+            .eq('fecha', hoy);
+
+        if (error) throw error;
+
+        if (data) {
+            // Mapeamos los datos para que el sistema los entienda (convertimos el string de productos a objeto)
+            VENTAS_SESION = data.map(v => ({
+                id: v.id,
+                total: parseFloat(v.precio),
+                metodo: v.metodo,
+                fecha: v.created_at,
+                items: JSON.parse(v.producto) // Convertimos el texto de la DB a lista de productos
+            }));
+
+            // Calculamos el total del día
+            const totalHoy = VENTAS_SESION.reduce((acc, v) => acc + v.total, 0);
+            
+            if (balanceTxt) {
+                balanceTxt.innerText = totalHoy.toFixed(2) + " Bs.";
+            }
+            console.log("Sincronización global completada.");
+        }
+    } catch (err) {
+        console.error("Error en sincronización global:", err);
     }
 }
     </script>
