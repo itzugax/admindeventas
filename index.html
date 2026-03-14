@@ -27,6 +27,9 @@
         * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
         
         body {
+
+            
+        
             background: radial-gradient(circle at top right, #1e1b4b, #020617);
             color: #f8fafc;
             font-family: 'Inter', sans-serif;
@@ -152,10 +155,29 @@
             text-transform: uppercase; font-size: 11px; color: var(--accent); transition: 0.3s;
         }
         .btn-back:hover { background: var(--accent); color: white; }
+        #bloqueo-pantalla {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(10, 11, 20, 0.98);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
     </style>
 </head>
 <body>
-
+<div id="bloqueo-pantalla">
+    <div class="text-center p-10 bg-white/5 rounded-[40px] border-2 border-white/10 shadow-2xl">
+        <div class="w-20 h-20 bg-blue-600 rounded-3xl flex items-center justify-center font-brand font-black text-5xl mx-auto mb-8 shadow-xl shadow-blue-600/30">N</div>
+        <h2 class="font-brand text-2xl font-black mb-6 uppercase tracking-widest text-white">Acceso Restringido</h2>
+        <input type="password" id="pass-acceso" placeholder="PIN DE SEGURIDAD" class="w-full bg-white/5 p-5 rounded-2xl border-2 border-white/10 outline-none font-bold text-center text-xl text-white mb-6 focus:border-blue-500 transition-all">
+        <button onclick="verificarAcceso()" class="w-full py-5 bg-blue-600 text-white rounded-[25px] font-black uppercase text-sm tracking-widest hover:bg-blue-500 transition">Entrar al Sistema</button>
+    </div>
+</div>
 <aside class="sidebar p-10">
     <div class="flex items-center gap-6 mb-14">
         <div class="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center font-brand font-black text-4xl shadow-xl shadow-blue-600/40">N</div>
@@ -274,7 +296,7 @@
                 <label for="check-factura" class="text-xs font-black uppercase opacity-60">Imprimir Comprobante</label>
             </div>
 
-            <button id="btn-confirmar-v" disabled onclick="finalizarVenta()" class="w-full py-7 bg-white/5 text-white/20 rounded-[30px] font-black uppercase text-sm tracking-[2px] transition-all">
+            <button id="btn-confirmar-v" enabled onclick="finalizarVenta()" class="w-full py-7 bg-white/5 text-white/20 rounded-[30px] font-black uppercase text-sm tracking-[2px] transition-all">
                 Confirmar Transacción
             </button>
         </div>
@@ -573,21 +595,66 @@ function activarDividido(btn) {
             b.className = ok ? "w-full py-7 bg-green-600 text-white rounded-[30px] font-black uppercase text-sm shadow-lg" : "w-full py-7 bg-white/5 text-white/20 rounded-[30px] font-black uppercase text-sm";
         }
 
-        async function finalizarVenta() {
-            const total = parseFloat(document.getElementById('total-txt').innerText);
-            const desglose = METODO_ACTUAL === "DIVIDIDO" ? { EFECTIVO: parseFloat(document.getElementById('in-ef').value)||0, PAGO_MOVIL: parseFloat(document.getElementById('in-pm').value)||0, BIOPAGO: parseFloat(document.getElementById('in-bio').value)||0 } : { [METODO_ACTUAL.replace(" ", "_")]: total };
+async function finalizarVenta() {
+    // 1. Validaciones iniciales
+    if (CARRITO.length === 0) {
+        alert("⚠️ El carrito está vacío");
+        return;
+    }
+    if (!METODO_SELECCIONADO) {
+        alert("⚠️ Selecciona un método de pago");
+        return;
+    }
 
-            const v = {
-                id: Date.now(), total: total, items: [...CARRITO], metodo: METODO_ACTUAL, desglose: desglose, fecha: new Date().toISOString()
-            };
+    // Calculamos el total
+    const totalVenta = CARRITO.reduce((acc, i) => acc + (i.precio * i.qty), 0);
 
-            if(document.getElementById('check-factura').checked) generateFacturaPDF(v);
+    try {
+        // 2. Mapeo exacto según tu imagen de Supabase
+        const { error } = await nexus
+            .from('ventas')
+            .insert([{
+                producto: JSON.stringify(CARRITO), // 'producto' en singular como tu tabla
+                precio: totalVenta,                // 'precio' en vez de 'total' como tu tabla
+                metodo: METODO_SELECCIONADO,       // 'metodo' (asegúrate de darle al botón Refresh en Supabase)
+                fecha: new Date().toLocaleDateString(), 
+                created_at: new Date().toISOString(),
+                // Si es pago dividido, aquí podrías llenar p_efectivo, p_movil, etc.
+                p_efectivo: METODO_SELECCIONADO === "EFECTIVO" ? totalVenta : 0,
+                p_movil: METODO_SELECCIONADO === "PAGO MÓVIL" ? totalVenta : 0,
+                p_bio: METODO_SELECCIONADO === "BIOPAGO" ? totalVenta : 0
+            }]);
 
-            VENTAS_SESION.push(v);
-            sessionStorage.setItem('nexus_v95_session', JSON.stringify(VENTAS_SESION));
-            confetti({ particleCount: 150, spread: 70, origin: { y: 0.8 } });
-            vaciarCarrito(); cerrarModal('modal-pago'); updateUIVisuals();
-        }
+        if (error) throw error;
+
+        // 3. Éxito y Limpieza
+
+        // Actualizar sesión local para estadísticas
+        VENTAS_SESION.push({
+            id: Date.now(),
+            items: [...CARRITO],
+            total: totalVenta,
+            metodo: METODO_SELECCIONADO,
+            fecha: new Date().toISOString()
+        });
+        sessionStorage.setItem('nexus_v95_session', JSON.stringify(VENTAS_SESION));
+
+        // Limpiar todo
+        CARRITO = [];
+        METODO_SELECCIONADO = null;
+        
+        if (typeof renderCart === 'function') renderCart();
+        if (typeof updateUIVisuals === 'function') updateUIVisuals();
+        
+        // Cerrar el modal
+        const modal = document.getElementById('modal-pago');
+        if (modal) modal.classList.remove('active');
+
+    } catch (err) {
+        console.error("Error detallado:", err);
+        alert("❌ Error de Base de Datos: " + err.message);
+    }
+}
 
         // --- AUDITORÍA Y BITÁCORA NAVEGABLE (LO NUEVO) ---
 function abrirAuditoriaTurno() {
@@ -966,6 +1033,42 @@ function agregarMontoManual() {
     CARRITO.push(itemManual);
     renderCart();
 }
+// Al cargar la página, ocultamos todo el contenido del terminal
+document.addEventListener('DOMContentLoaded', () => {
+    // Guardamos el contenido original en una variable y borramos el HTML
+    window.contenidoTerminal = document.getElementById('app-main-content').innerHTML;
+    document.getElementById('app-main-content').innerHTML = ""; 
+});
+
+function verificarAcceso() {
+    const pass = document.getElementById('pass-acceso').value;
+    if (pass === "3110") {
+        // Solo si la clave es correcta, RECONSTRUIMOS el HTML
+        document.getElementById('bloqueo-pantalla').remove();
+        document.getElementById('app-main-content').innerHTML = window.contenidoTerminal;
+        
+        // Ejecutamos de nuevo las funciones iniciales (como cargar productos)
+        inicializarSistema(); 
+    } else {
+        alert("PIN INCORRECTO");
+    }
+}
+
+// Permitir entrar también presionando la tecla "Enter"
+document.getElementById('pass-acceso')?.addEventListener('keypress', function (e) {
+    if (e.key === 'Enter') {
+        verificarAcceso();
+    }
+});
+// Bloquear clic derecho
+document.addEventListener('contextmenu', event => event.preventDefault());
+
+// Bloquear F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U (Ver código fuente)
+document.onkeydown = function(e) {
+    if (e.keyCode == 123) return false; // F12
+    if (e.ctrlKey && e.shiftKey && (e.keyCode == 'I'.charCodeAt(0) || e.keyCode == 'J'.charCodeAt(0))) return false;
+    if (e.ctrlKey && e.keyCode == 'U'.charCodeAt(0)) return false;
+};
     </script>
 </body>
 </html>
