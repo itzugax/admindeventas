@@ -115,11 +115,34 @@
         .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 20px; }
         
         /* Botones de Pago */
-        .btn-metodo {
-            padding: 1.5rem; border-radius: 22px; font-weight: 800; font-size: 12px;
-            text-transform: uppercase; border: 2px solid var(--border); transition: 0.3s;
-            background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.4);
-        }
+.btn-metodo {
+    padding: 15px 5px; /* Menos espacio arriba/abajo */
+    border-radius: 18px; 
+    font-weight: 800; 
+    font-size: 16px; /* Bajamos de 22px a 16px (un poquito más que el original) */
+    text-transform: uppercase; 
+    
+    /* Recuperamos el borde y le damos un toque de color */
+    border: 2px solid rgba(255, 255, 255, 0.15); 
+    
+    transition: 0.3s;
+    background: rgba(255, 255, 255, 0.03); 
+    color: rgba(255, 255, 255, 0.6); /* Letra un poco más brillante */
+    
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+}
+
+/* Efecto para cuando pasas el mouse por encima */
+.btn-metodo:hover {
+    border-color: rgba(59, 130, 246, 0.5);
+    background: rgba(59, 130, 246, 0.1);
+    color: #fff;
+}
+        
         .btn-metodo.active-blue { background: var(--accent); border-color: #60a5fa; color: white; box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3); }
         .btn-metodo.active-orange { background: var(--orange); border-color: #fb923c; color: white; box-shadow: 0 10px 20px rgba(249, 115, 22, 0.3); }
 
@@ -203,23 +226,23 @@
         <div id="lista-carrito" class="flex-1 overflow-y-auto custom-scroll p-10 space-y-6">
             </div>
 
-        <div class="p-12 bg-black/40 border-t-2 border-white/15 space-y-8">
-            <div class="flex justify-between items-center">
-                <span class="text-xs font-black opacity-30 uppercase tracking-widest">Total a Pagar</span>
-                <div class="text-right">
-                    <span id="total-txt" class="font-brand text-7xl font-black">0.00</span>
-                    <span class="text-2xl font-black text-blue-500 ml-4">Bs.</span>
-                </div>
-            </div>
-
-            <button onclick="abrirModalPago()" class="w-full py-8 bg-blue-600 rounded-[40px] font-brand text-base font-black uppercase tracking-[3px] shadow-3xl shadow-blue-600/30 active:scale-95 transition-all">
-                Procesar Cobro
-            </button>
-            
-            <button onclick="mandarACola()" class="w-full py-5 bg-orange-600/10 text-orange-500 rounded-[25px] font-black text-xs uppercase border-2 border-orange-500/20 hover:bg-orange-600 hover:text-white transition">
-                Pausar y Guardar Ticket
-            </button>
+<div class="p-8 bg-black/40 border-t-2 border-white/15 space-y-6">
+    <div class="flex justify-between items-center">
+        <span class="text-xs font-black opacity-30 uppercase tracking-widest">Total a Pagar</span>
+        <div class="text-right">
+            <span id="total-txt" class="font-brand text-5xl font-black">0.00</span>
+            <span class="text-xl font-black text-blue-500 ml-2">Bs.</span>
         </div>
+    </div>
+
+    <button onclick="abrirModalPago()" class="w-full py-5 bg-blue-600 rounded-[30px] font-brand text-sm font-black uppercase tracking-[2px] shadow-3xl shadow-blue-600/30 active:scale-95 transition-all">
+        Procesar Cobro
+    </button>
+    
+    <button onclick="mandarACola()" class="w-full py-3 bg-orange-600/10 text-orange-500 rounded-[20px] font-black text-[10px] uppercase border-2 border-orange-500/20 hover:bg-orange-600 hover:text-white transition">
+        Pausar y Guardar Ticket
+    </button>
+</div>
     </aside>
 
 <div id="modal-pago" class="modal-nexus">
@@ -438,27 +461,37 @@
             renderCart();
         }
 
-        function renderCart() {
-            const cont = document.getElementById('lista-carrito');
-            cont.innerHTML = ""; let t = 0;
-            CARRITO.forEach(i => {
-                const sub = i.precio * i.qty; t += sub;
-                const d = document.createElement('div');
-                d.className = "p-6 bg-white/5 rounded-[25px] border-2 border-white/5 flex justify-between items-center";
-                d.innerHTML = `
-                    <div class="flex-1">
-                        <p class="text-base font-black uppercase text-white">${i.nombre}</p>
-                        <p class="text-sm text-blue-400 font-bold mt-1">${i.qty} x ${i.precio.toFixed(2)}</p>
-                    </div>
-                    <div class="flex items-center gap-6">
-                        <span class="text-xl font-black font-brand">${sub.toFixed(2)}</span>
-                        <button onclick="removeFromCart(${i.uid})" class="w-10 h-10 flex items-center justify-center bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 transition">✕</button>
-                    </div>
-                `;
-                cont.appendChild(d);
-            });
-            document.getElementById('total-txt').innerText = t.toFixed(2);
-        }
+function renderCart() {
+    // Usamos el ID correcto de tu HTML: 'lista-carrito'
+    const cont = document.getElementById('lista-carrito');
+    if (!cont) return;
+
+    cont.innerHTML = ""; 
+    let t = 0;
+
+    CARRITO.forEach(i => {
+        const sub = i.precio * i.qty; 
+        t += sub;
+        
+        const d = document.createElement('div');
+        // Reducimos el padding de p-6 a p-3 y el borde a border (más fino)
+        d.className = "p-3 bg-white/5 rounded-[18px] border border-white/5 flex justify-between items-center mb-2";
+        
+        d.innerHTML = `
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-black uppercase text-white truncate pr-2">${i.nombre}</p>
+                <p class="text-[11px] text-blue-400 font-bold">${i.qty} x ${i.precio.toFixed(2)}</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <span class="text-base font-black font-brand text-white/90">${sub.toFixed(2)}</span>
+                <button onclick="removeFromCart(${i.uid})" class="w-8 h-8 flex items-center justify-center bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition">✕</button>
+            </div>
+        `;
+        cont.appendChild(d);
+    });
+
+    document.getElementById('total-txt').innerText = t.toFixed(2);
+}
 
         function removeFromCart(uid) { CARRITO = CARRITO.filter(i => i.uid !== uid); renderCart(); }
         function vaciarCarrito() { CARRITO = []; renderCart(); }
