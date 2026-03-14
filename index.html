@@ -1012,6 +1012,82 @@ function agregarMontoManual() {
     CARRITO.push(itemManual);
     renderCart();
 }
+async function cargarMontoDesdeNube() {
+    // Obtenemos la fecha de hoy en el mismo formato que guardas en la DB
+    const hoy = new Date().toLocaleDateString();
+    
+    try {
+        const { data, error } = await nexus
+            .from('ventas')
+            .select('precio')
+            .eq('fecha', hoy);
+
+        if (error) throw error;
+
+        if (data) {
+            // Sumamos todos los precios que están en la tabla 'ventas'
+            const totalHoy = data.reduce((acc, v) => acc + (parseFloat(v.precio) || 0), 0);
+            
+            // Lo ponemos en el texto del balance de tu sidebar
+            const balanceTxt = document.getElementById('balance-txt');
+            if (balanceTxt) {
+                balanceTxt.innerText = totalHoy.toFixed(2) + " Bs.";
+            }
+            
+            // Actualizamos la variable global para que el sistema esté sincronizado
+            VENTAS_SESION = data;
+        }
+    } catch (err) {
+        console.error("Error cargando datos de Supabase:", err);
+    }
+}
+// --- ESTO VA AL FINAL DEL SCRIPT ---
+
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Iniciamos el inventario
+    if (typeof loadInventory === 'function') loadInventory();
+
+    // 2. Cargamos el monto de la nube inmediatamente
+    cargarMontoDesdeNube();
+
+    // 3. REFUERZO: Si alguna función borra el monto al segundo, 
+    // lo volvemos a llamar a los 2 segundos para asegurar.
+    setTimeout(() => {
+        cargarMontoDesdeNube();
+    }, 2000);
+});
+// La función que viaja a Supabase (pégala aquí también si no la has puesto)
+async function cargarMontoDesdeNube() {
+    const hoy = new Date().toLocaleDateString();
+    const balanceTxt = document.getElementById('balance-txt');
+
+    try {
+        const { data, error } = await nexus
+            .from('ventas')
+            .select('precio')
+            .eq('fecha', hoy);
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+            // Sumamos con seguridad
+            const totalHoy = data.reduce((acc, v) => acc + (parseFloat(v.precio) || 0), 0);
+            
+            // Guardamos en la variable global para que otras funciones la vean
+            VENTAS_SESION = data; 
+            
+            // Actualizamos el texto en pantalla
+            if (balanceTxt) {
+                balanceTxt.innerText = totalHoy.toFixed(2) + " Bs.";
+            }
+            console.log("Monto sincronizado con la nube:", totalHoy);
+        } else {
+            if (balanceTxt) balanceTxt.innerText = "0.00 Bs.";
+        }
+    } catch (err) {
+        console.error("Error sincronizando:", err);
+    }
+}
     </script>
 </body>
 </html>
