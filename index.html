@@ -155,6 +155,19 @@
             text-transform: uppercase; font-size: 11px; color: var(--accent); transition: 0.3s;
         }
         .btn-back:hover { background: var(--accent); color: white; }
+        /* Mejora de visibilidad en Auditoría */
+#modal-auditoria canvas {
+    filter: drop-shadow(0 0 10px rgba(0,0,0,0.5));
+}
+
+#lista-transacciones-turno span {
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+/* Forzar que las etiquetas del eje Y sean legibles */
+.chart-js-render-monitor {
+    color: #ffffff !important;
+}
     </style>
 </head>
 <body>
@@ -194,6 +207,10 @@
             🔒 CERRAR JORNADA
         </button>
     </div>
+
+    <button onclick="registrarGasto()" class="w-full p-4 flex items-center gap-6 rounded-2xl text-red-400/60 font-bold text-base uppercase transition hover:bg-red-600/10 group">
+    <span class="text-2xl">💸</span> Gastos Diarios
+</button>
 </aside>
 
 
@@ -652,64 +669,158 @@ async function finalizarVenta() {
 }
 
         // --- AUDITORÍA Y BITÁCORA NAVEGABLE (LO NUEVO) ---
-function abrirAuditoriaTurno() {
+async function abrirAuditoriaTurno() {
     abrirModulo('modal-auditoria');
     volverAuditoriaIndex();
 
-    // 1. Inicialización de contadores detallados
-    const metodos = { EFECTIVO: 0, PAGO_MOVIL: 0, BIOPAGO: 0 };
-    const conteoMetodos = { EFECTIVO: 0, PAGO_MOVIL: 0, BIOPAGO: 0 };
-    const rank = {};
-    const horasData = new Array(24).fill(0); // Para la estadística de horas
+    const hoy = new Date().toLocaleDateString();
+    let totalGastos = 0;
+    let gastosData = [];
 
+    // 1. Carga de Gastos (Egresos) desde Supabase
+    try {
+        const { data, error } = await nexus.from('gastos').select('*').eq('fecha', hoy);
+        if (!error && data) {
+            gastosData = data;
+            totalGastos = data.reduce((acc, g) => acc + (parseFloat(g.monto) || 0), 0);
+        }
+    } catch (e) {
+        console.error("Error al cargar gastos:", e);
+    }
+
+    const totalVentas = VENTAS_SESION.reduce((acc, v) => acc + (parseFloat(v.total) || 0), 0);
     const list = document.getElementById('lista-transacciones-turno');
-    list.innerHTML = "";
+    
+    // 2. Renderizado de Cabecera de Dinero (Cards de Resumen)
+    list.innerHTML = `
+        <div class="grid grid-cols-3 gap-4 mb-8">
+            <div class="bg-green-600/10 p-5 rounded-3xl border border-green-500/20 text-center">
+                <p class="text-[9px] font-black opacity-50 uppercase text-white">Ventas Brutas</p>
+                <p class="text-lg font-black text-green-400">${totalVentas.toFixed(2)}</p>
+            </div>
+            <div class="bg-red-600/10 p-5 rounded-3xl border border-red-500/20 text-center">
+                <p class="text-[9px] font-black opacity-50 uppercase text-white">Gastos</p>
+                <p class="text-lg font-black text-red-400">-${totalGastos.toFixed(2)}</p>
+            </div>
+            <div class="bg-blue-600/10 p-5 rounded-3xl border border-blue-500/20 text-center">
+                <p class="text-[9px] font-black opacity-50 uppercase text-white">Neto Caja</p>
+                <p class="text-lg font-black text-blue-300">${(totalVentas - totalGastos).toFixed(2)}</p>
+            </div>
+        </div>
+    `;
 
-    // 2. Procesamiento de la data de la sesión
+    // 3. Procesamiento de datos para Gráficos
+    const metodos = { EFECTIVO: 0, PAGO_MOVIL: 0, BIOPAGO: 0 };
+    const rank = {};
+
     VENTAS_SESION.forEach(v => {
-        // Concurrencia por hora
-        const hora = new Date(v.fecha).getHours();
-        horasData[hora]++;
-
-        // Desglose por métodos (incluyendo pagos divididos)
+        // Desglose de métodos
         if (v.metodo === "DIVIDIDO") {
-            metodos.EFECTIVO += (v.desglose.EFECTIVO || 0);
-            metodos.PAGO_MOVIL += (v.desglose.PAGO_MOVIL || 0);
-            metodos.BIOPAGO += (v.desglose.BIOPAGO || 0);
-            // Si es dividido, sumamos a los conteos de los métodos que participaron
-            if(v.desglose.EFECTIVO > 0) conteoMetodos.EFECTIVO++;
-            if(v.desglose.PAGO_MOVIL > 0) conteoMetodos.PAGO_MOVIL++;
-            if(v.desglose.BIOPAGO > 0) conteoMetodos.BIOPAGO++;
+            metodos.EFECTIVO += (v.desglose?.EFECTIVO || 0);
+            metodos.PAGO_MOVIL += (v.desglose?.PAGO_MOVIL || 0);
+            metodos.BIOPAGO += (v.desglose?.BIOPAGO || 0);
         } else {
-            const m = v.metodo.replace(" ", "_");
-            metodos[m] = (metodos[m] || 0) + v.total;
-            conteoMetodos[m] = (conteoMetodos[m] || 0) + 1;
+            const m = v.metodo.replace(" ", "_").replace("Ó", "O");
+            if (metodos.hasOwnProperty(m)) metodos[m] += v.total;
         }
 
         // Ranking de productos
-        v.items.forEach(i => {
-            rank[i.nombre] = (rank[i.nombre] || 0) + i.qty;
-        });
+        if (v.items) {
+            v.items.forEach(i => { rank[i.nombre] = (rank[i.nombre] || 0) + i.qty; });
+        }
+    });
 
-        // Renderizado de la lista (Bitácora)
+    // 4. Renderizado de la Bitácora (Egresos + Ventas)
+    if (gastosData.length > 0) {
+        list.innerHTML += `<p class="text-[10px] font-black text-red-500 uppercase mb-3 tracking-widest">Egresos Registrados</p>`;
+        gastosData.forEach(g => {
+            const dg = document.createElement('div');
+            dg.className = "p-3 bg-red-500/5 rounded-xl border border-red-500/10 flex justify-between mb-2";
+            dg.innerHTML = `<span class="text-[11px] font-bold text-red-200/70">${g.concepto}</span><span class="text-[11px] font-black text-red-400">-${parseFloat(g.monto).toFixed(2)}</span>`;
+            list.appendChild(dg);
+        });
+    }
+
+    list.innerHTML += `<p class="text-[10px] font-black text-blue-500 uppercase mt-8 mb-3 tracking-widest">Historial de Ventas</p>`;
+    
+    VENTAS_SESION.forEach(v => {
         const d = document.createElement('div');
-        d.className = "p-6 bg-white/5 rounded-2xl flex justify-between cursor-pointer hover:bg-blue-600/10 border border-white/5 transition-all";
+        d.className = "p-4 bg-white/5 rounded-2xl flex justify-between cursor-pointer hover:bg-blue-600/10 border border-white/5 transition-all mb-2";
         d.onclick = () => verDetalleVenta(v);
         d.innerHTML = `
-            <div class="flex gap-6 items-center">
-                <span class="text-[10px] opacity-20 font-black">#${v.id.toString().slice(-5)}</span>
+            <div class="flex gap-4 items-center">
+                <span class="text-[9px] opacity-30 font-black text-white">#${v.id.toString().slice(-4)}</span>
                 <div class="flex flex-col">
-                    <span class="text-xs font-black uppercase">${v.metodo}</span>
-                    <span class="text-[9px] opacity-40">${new Date(v.fecha).toLocaleTimeString()}</span>
+                    <span class="text-[11px] font-black uppercase text-white">${v.metodo}</span>
+                    <span class="text-[9px] opacity-50 text-white">${new Date(v.fecha).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                 </div>
             </div>
-            <span class="font-brand font-black text-blue-400">${v.total.toFixed(2)} BS.</span>
+            <span class="font-brand font-black text-blue-400 text-sm">${v.total.toFixed(2)}</span>
         `;
         list.appendChild(d);
     });
-    
 
-    // 3. Actualización de Gráficos (Distribución y Ranking)
+    // 5. Generación de Gráficos Visibles
+    actualizarGraficosVisuales(metodos, rank);
+}
+
+function actualizarGraficosVisuales(metodos, rank) {
+    if(chartM) chartM.destroy();
+    if(chartR) chartR.destroy();
+
+    // Configuración de Pastel (Distribución)
+    chartM = new Chart(document.getElementById('chartAuditMetodos'), {
+        type: 'doughnut',
+        data: {
+            labels: ['EFECTIVO', 'P. MÓVIL', 'BIOPAGO'],
+            datasets: [{
+                data: [metodos.EFECTIVO, metodos.PAGO_MOVIL, metodos.BIOPAGO],
+                backgroundColor: ['#3b82f6', '#f97316', '#10b981'],
+                borderWidth: 2,
+                borderColor: '#0f172a'
+            }]
+        },
+        options: { 
+            maintainAspectRatio: false, 
+            plugins: { 
+                legend: { 
+                    display: true, 
+                    position: 'bottom', 
+                    labels: { color: '#ffffff', font: { weight: 'bold', size: 11 } } 
+                },
+                tooltip: {
+                    callbacks: { label: (c) => ` ${c.label}: ${c.raw.toFixed(2)} Bs.` }
+                }
+            } 
+        }
+    });
+
+    // Configuración de Barras (Ranking)
+    chartR = new Chart(document.getElementById('chartAuditRanking'), {
+        type: 'bar',
+        data: {
+            labels: Object.keys(rank),
+            datasets: [{
+                data: Object.values(rank),
+                backgroundColor: '#3b82f6',
+                borderRadius: 8,
+                barThickness: 20
+            }]
+        },
+        options: { 
+            indexAxis: 'y', 
+            maintainAspectRatio: false, 
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: { display: false }, ticks: { color: '#ffffff', font: { weight: 'bold' } } },
+                y: { grid: { display: false }, ticks: { color: '#ffffff', font: { weight: '900', size: 10 } } }
+            }
+        }
+    });
+}
+
+// Función auxiliar para no saturar la principal
+function actualizarGraficosAuditoria(metodos, rank) {
     if(chartM) chartM.destroy();
     if(chartR) chartR.destroy();
 
@@ -720,16 +831,10 @@ function abrirAuditoriaTurno() {
             datasets: [{
                 data: [metodos.EFECTIVO, metodos.PAGO_MOVIL, metodos.BIOPAGO],
                 backgroundColor: ['#3b82f6', '#f97316', '#10b981'],
-                borderWidth: 0,
-                hoverOffset: 10
+                borderWidth: 0
             }]
         },
-        options: {
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'bottom', labels: { color: 'white', font: { weight: 'bold' } } }
-            }
-        }
+        options: { maintainAspectRatio: false, plugins: { legend: { display: false } } }
     });
 
     chartR = new Chart(document.getElementById('chartAuditRanking'), {
@@ -737,21 +842,12 @@ function abrirAuditoriaTurno() {
         data: {
             labels: Object.keys(rank),
             datasets: [{
-                label: 'Unidades',
                 data: Object.values(rank),
                 backgroundColor: '#3b82f6',
-                borderRadius: 8
+                borderRadius: 5
             }]
         },
-        options: {
-            indexAxis: 'y',
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                x: { grid: { display: false }, ticks: { color: 'white' } },
-                y: { grid: { display: false }, ticks: { color: 'white' } }
-            }
-        }
+        options: { indexAxis: 'y', maintainAspectRatio: false, plugins: { legend: { display: false } } }
     });
 }
 
@@ -1183,6 +1279,26 @@ async function cargarVentasDesdeNube() {
     } catch (err) {
         console.error("Error crítico de sincronización:", err);
         if (balanceTxt) balanceTxt.innerText = "Error Sinc.";
+    }
+}
+async function registrarGasto() {
+    const concepto = prompt("CONCEPTO DEL GASTO (Ej: Almuerzo, Transporte):").toUpperCase();
+    if (!concepto) return;
+    
+    const monto = parseFloat(prompt("MONTO GASTADO EN BS:"));
+    if (isNaN(monto) || monto <= 0) return alert("Monto no válido");
+
+    const hoy = new Date().toLocaleDateString();
+
+    const { error } = await nexus.from('gastos').insert([
+        { concepto, monto, fecha: hoy }
+    ]);
+
+    if (!error) {
+        alert("Gasto registrado correctamente");
+        await cargarVentasDesdeNube(); // Recargamos para actualizar cálculos
+    } else {
+        alert("Error al registrar gasto");
     }
 }
     </script>
